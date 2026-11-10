@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyVideoCloud — returning to the app</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 34rem; padding: 0 1rem; line-height: 1.5; }
+  code { background: #f0f0f0; padding: 0.6rem; display: block; word-break: break-all; border-radius: 6px; }
+  a.button { display: inline-block; background: #0b57d0; color: #fff; padding: 0.7rem 1.2rem; border-radius: 8px; text-decoration: none; }
+</style>
+</head>
+<body>
+<h1>Returning to MyVideoCloud…</h1>
+<p id="status">Handing the sign-in back to the app.</p>
+<p><a class="button" id="openApp" href="#">Open MyVideoCloud</a></p>
+<p>If the app does not open, copy this code and paste it into MyVideoCloud:</p>
+<code id="codeBox">(no code found)</code>
+<script>
+  // Google lands here with ?code=...&state=... (or ?error=...).
+  // Forward the FULL query string to the app's custom scheme so the app
+  // can verify `state` and exchange the code (PKCE) itself.
+  (function () {
+    var query = window.location.search || "";
+    var target = "myvideocloud://oauth" + query;
+    var params = new URLSearchParams(query);
+    var code = params.get("code");
+    if (code) {
+      document.getElementById("codeBox").textContent = code;
+    } else if (params.get("error")) {
+      document.getElementById("status").textContent =
+        "Google returned an error: " + params.get("error") +
+        ". You can return to the app and try again.";
+    }
+    var link = document.getElementById("openApp");
+    link.href = target;
+    // Automatic hand-off; the button above is the manual fallback.
+    window.location.replace(target);
+  })();
+</script>
+</body>
+</html>
