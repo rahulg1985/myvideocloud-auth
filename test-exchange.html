@@ -1,0 +1,56 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Sign-in test</title></head>
+<body style="font-family:monospace;padding:16px">
+<h3>MyVideoCloud sign-in test</h3>
+<pre id="out">running…</pre>
+<script>
+const out = (t) => { document.getElementById('out').textContent += '\n' + t; };
+document.getElementById('out').textContent = '';
+const q = new URLSearchParams(location.search);
+const code = q.get('code'), verifier = q.get('v');
+const CLIENT_ID = '246613661845-cmlt4l5l4i1qnt62bha1upnat89te6hm.apps.googleusercontent.com';
+const REDIRECT = 'https://rahulg1985.github.io/myvideocloud-auth/redirect.html';
+async function postToken(body) {
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams(body)});
+  return [r.status, await r.json()];
+}
+(async () => {
+  try {
+    const [st, tok] = await postToken({grant_type: 'authorization_code', code,
+      redirect_uri: REDIRECT, client_id: CLIENT_ID, code_verifier: verifier});
+    out('EXCHANGE status: ' + st);
+    if (st !== 200) { out('ERROR: ' + (tok.error || '') + ' | ' + (tok.error_description || '')); return; }
+    out('has access_token: ' + ('access_token' in tok));
+    out('has refresh_token: ' + ('refresh_token' in tok));
+    out('has id_token: ' + ('id_token' in tok));
+    out('scope: ' + (tok.scope || ''));
+    if (tok.id_token) {
+      const p = JSON.parse(atob(tok.id_token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+      out('ID_TOKEN email: ' + p.email);
+      out('ID_TOKEN name present: ' + !!p.name);
+    }
+    const ui = await (await fetch('https://openidconnect.googleapis.com/v1/userinfo',
+      {headers: {'Authorization': 'Bearer ' + tok.access_token}})).json();
+    out('USERINFO email: ' + ui.email);
+    const chResp = await fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
+      {headers: {'Authorization': 'Bearer ' + tok.access_token}});
+    const ch = await chResp.json();
+    const items = ch.items || [];
+    out('CHANNELS status: ' + chResp.status + ' | count: ' + items.length +
+        ' | title: ' + (items.length ? items[0].snippet.title : 'none'));
+    const [st2, tok2] = await postToken({grant_type: 'refresh_token',
+      refresh_token: tok.refresh_token, client_id: CLIENT_ID});
+    out('REFRESH status: ' + st2 + ' | has new access_token: ' + ('access_token' in tok2));
+    if (st2 === 200) {
+      const ui2 = await (await fetch('https://openidconnect.googleapis.com/v1/userinfo',
+        {headers: {'Authorization': 'Bearer ' + tok2.access_token}})).json();
+      out('USERINFO(after refresh) email: ' + ui2.email);
+    }
+    out('TEST DONE');
+  } catch (e) { out('EXCEPTION: ' + e.message); }
+})();
+</script>
+</body></html>
